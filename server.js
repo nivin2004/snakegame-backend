@@ -2,6 +2,9 @@ const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const http = require('http');
+const WebSocket = require('ws');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -42,11 +45,27 @@ app.post('/highscore', async (req, res) => {
       await highScore.save();
     }
     res.json(highScore);
+
+    // Broadcast the new high score to all connected WebSocket clients
+    wss.clients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(highScore));
+      }
+    });
+
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-app.listen(PORT, () => {
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
+wss.on('connection', (ws) => {
+  console.log('Client connected');
+  ws.on('close', () => console.log('Client disconnected'));
+});
+
+server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
